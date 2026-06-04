@@ -1,0 +1,307 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+:root {
+  --app-bg: #f7f8fb;
+  --surface: #ffffff;
+  --surface-subtle: #f1f5f9;
+  --foreground: #0f172a;
+  --muted: #64748b;
+  --border: #dbe3ee;
+  --primary: #0f172a;
+  --primary-hover: #273449;
+  --accent: #0f766e;
+  --danger: #b91c1c;
+  --success-bg: #ecfdf5;
+  --success-fg: #047857;
+  --warning-bg: #fffbeb;
+  --warning-fg: #b45309;
+  --danger-bg: #fef2f2;
+  --danger-fg: #991b1b;
+  --suggestion-bg: #f5f3ff;
+  --suggestion-fg: #4c1d95;
+  --canvas-dot: #d7dee8;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --app-bg: #070a12;
+  --surface: #101623;
+  --surface-subtle: #172033;
+  --foreground: #e5edf8;
+  --muted: #93a4b8;
+  --border: #263348;
+  --primary: #2dd4bf;
+  --primary-hover: #14b8a6;
+  --accent: #5eead4;
+  --danger: #f87171;
+  --success-bg: #082f2a;
+  --success-fg: #7dd3fc;
+  --warning-bg: #3b2a08;
+  --warning-fg: #fbbf24;
+  --danger-bg: #3b1017;
+  --danger-fg: #fca5a5;
+  --suggestion-bg: #241638;
+  --suggestion-fg: #d8b4fe;
+  --canvas-dot: #25334a;
+}
+
+@theme inline {
+  --color-background: var(--app-bg);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--app-bg);
+}
+
+body {
+  min-height: 100dvh;
+  background: var(--app-bg);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(20, 184, 166, 0.35);
+  outline-offset: 2px;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  border-radius: 0.5rem;
+  padding: 0 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    opacity 150ms ease;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn-primary {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--app-bg);
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-secondary {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.btn-secondary:hover {
+  background: var(--surface-subtle);
+}
+
+.btn-ghost {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--foreground);
+}
+
+.btn-ghost:hover {
+  background: color-mix(in srgb, var(--foreground) 8%, transparent);
+}
+
+.field {
+  min-height: 2.75rem;
+  width: 100%;
+  border-radius: 0.5rem;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0 0.875rem;
+  color: var(--foreground);
+}
+
+.field::placeholder {
+  color: var(--muted);
+}
+
+.textarea {
+  min-height: 6rem;
+  padding-top: 0.75rem;
+  padding-bottom: 0.75rem;
+  resize: vertical;
+}
+
+.panel {
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.react-flow__node-mindMapNode {
+  border: 0;
+  background: transparent;
+}
+
+.react-flow {
+  background: var(--app-bg);
+}
+
+.react-flow__controls,
+.react-flow__minimap {
+  border: 1px solid var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--foreground) !important;
+}
+
+.react-flow__controls button {
+  border-bottom-color: var(--border) !important;
+  background: var(--surface) !important;
+  color: var(--foreground) !important;
+}
+
+.react-flow__controls button:hover {
+  background: var(--surface-subtle) !important;
+}
+
+[data-theme="dark"] .bg-white,
+[data-theme="dark"] .bg-slate-50 {
+  background-color: var(--surface) !important;
+}
+
+[data-theme="dark"] .bg-slate-100 {
+  background-color: var(--surface-subtle) !important;
+}
+
+[data-theme="dark"] .hover\:bg-slate-50:hover {
+  background-color: var(--surface-subtle) !important;
+}
+
+[data-theme="dark"] .border-slate-100,
+[data-theme="dark"] .border-slate-200,
+[data-theme="dark"] .border-slate-300 {
+  border-color: var(--border) !important;
+}
+
+[data-theme="dark"] .text-slate-950,
+[data-theme="dark"] .text-slate-900,
+[data-theme="dark"] .text-slate-800,
+[data-theme="dark"] .text-slate-700 {
+  color: var(--foreground) !important;
+}
+
+[data-theme="dark"] .text-slate-600,
+[data-theme="dark"] .text-slate-500,
+[data-theme="dark"] .text-slate-400 {
+  color: var(--muted) !important;
+}
+
+[data-theme="dark"] .bg-emerald-50,
+[data-theme="dark"] .bg-teal-50 {
+  background-color: var(--success-bg) !important;
+}
+
+[data-theme="dark"] .text-emerald-700,
+[data-theme="dark"] .text-emerald-800,
+[data-theme="dark"] .text-emerald-950,
+[data-theme="dark"] .text-teal-700,
+[data-theme="dark"] .text-teal-900,
+[data-theme="dark"] .text-teal-950 {
+  color: var(--success-fg) !important;
+}
+
+[data-theme="dark"] .border-emerald-200,
+[data-theme="dark"] .border-emerald-300,
+[data-theme="dark"] .border-teal-200 {
+  border-color: color-mix(in srgb, var(--success-fg) 45%, var(--border)) !important;
+}
+
+[data-theme="dark"] .bg-amber-50 {
+  background-color: var(--warning-bg) !important;
+}
+
+[data-theme="dark"] .text-amber-700,
+[data-theme="dark"] .text-amber-900,
+[data-theme="dark"] .text-amber-950 {
+  color: var(--warning-fg) !important;
+}
+
+[data-theme="dark"] .border-amber-200,
+[data-theme="dark"] .border-amber-300 {
+  border-color: color-mix(in srgb, var(--warning-fg) 45%, var(--border)) !important;
+}
+
+[data-theme="dark"] .bg-red-50 {
+  background-color: var(--danger-bg) !important;
+}
+
+[data-theme="dark"] .text-red-700,
+[data-theme="dark"] .text-red-800,
+[data-theme="dark"] .text-red-900 {
+  color: var(--danger-fg) !important;
+}
+
+[data-theme="dark"] .border-red-200 {
+  border-color: color-mix(in srgb, var(--danger-fg) 45%, var(--border)) !important;
+}
+
+[data-theme="dark"] .bg-violet-50,
+[data-theme="dark"] .bg-sky-50 {
+  background-color: var(--suggestion-bg) !important;
+}
+
+[data-theme="dark"] .text-violet-700,
+[data-theme="dark"] .text-violet-900,
+[data-theme="dark"] .text-violet-950,
+[data-theme="dark"] .text-sky-950 {
+  color: var(--suggestion-fg) !important;
+}
+
+[data-theme="dark"] .border-violet-200,
+[data-theme="dark"] .border-violet-300,
+[data-theme="dark"] .border-sky-300 {
+  border-color: color-mix(in srgb, var(--suggestion-fg) 45%, var(--border)) !important;
+}
+
+[data-theme="dark"] .border-slate-950 {
+  border-color: var(--foreground) !important;
+}
+
+[data-theme="dark"] .text-white {
+  color: #ffffff !important;
+}
+
+[data-theme="dark"] .shadow-sm {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-theme="dark"] .bg-\[radial-gradient\(circle_at_1px_1px\2c \#d7dee8_1px\2c transparent_0\)\] {
+  background-image: radial-gradient(circle at 1px 1px, var(--canvas-dot) 1px, transparent 0) !important;
+}
