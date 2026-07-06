@@ -1,4 +1,4 @@
-import { GitBranchPlus, LayoutGrid, Plus, Save, Trash2, Undo2 } from "lucide-react";
+import { GitBranchPlus, LayoutGrid, Pencil, Plus, Save, Trash2, Undo2 } from "lucide-react";
 import { useUiStore } from "@/src/shared/store/ui-store";
 import { cn } from "@/src/shared/lib/cn";
 
@@ -6,6 +6,7 @@ export function CanvasToolbar({
   canEdit,
   canSnapshot,
   onAddNode,
+  onEditNode,
   onDeleteNode,
   onUndo,
   onAutoLayout,
@@ -14,6 +15,7 @@ export function CanvasToolbar({
   canEdit: boolean;
   canSnapshot: boolean;
   onAddNode: () => void;
+  onEditNode: () => void;
   onDeleteNode: () => void;
   onUndo: () => void;
   onAutoLayout: () => void;
@@ -26,6 +28,9 @@ export function CanvasToolbar({
     <aside className="flex w-full shrink-0 gap-2 overflow-x-auto border-b border-slate-200 bg-white p-2 lg:w-16 lg:flex-col lg:overflow-visible lg:border-b-0 lg:border-r">
       <button className="btn btn-secondary size-11 shrink-0 p-0" type="button" onClick={onAddNode} disabled={!canEdit} aria-label="Agregar nodo" title="Agregar nodo">
         <Plus className="size-4" aria-hidden />
+      </button>
+      <button className="btn btn-secondary size-11 shrink-0 p-0" type="button" onClick={onEditNode} disabled={!canEdit} aria-label="Editar nodo seleccionado" title="Editar nodo seleccionado">
+        <Pencil className="size-4" aria-hidden />
       </button>
       <button
         className={cn("btn size-11 shrink-0 p-0", connectMode ? "btn-primary" : "btn-secondary")}

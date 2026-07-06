@@ -158,6 +158,7 @@ export function MapEditorPage({
             canEdit={canEdit}
             canSnapshot={canSnapshot}
             onAddNode={() => canvasRef.current?.addNode()}
+            onEditNode={() => canvasRef.current?.editSelected()}
             onDeleteNode={() => canvasRef.current?.deleteSelected()}
             onUndo={() => canvasRef.current?.undo()}
             onAutoLayout={() => canvasRef.current?.autoLayout()}

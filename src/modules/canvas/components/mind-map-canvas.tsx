@@ -44,6 +44,7 @@ function CollaborativeCursor({ connectionId }: CursorsCursorProps) {
 
 export type MindMapCanvasHandle = {
   addNode: () => void;
+  editSelected: () => void;
   deleteSelected: () => void;
   undo: () => void;
   autoLayout: () => void;
@@ -81,6 +82,7 @@ export function MindMapCanvas({
   const [localSelectedEdgeIds, setLocalSelectedEdgeIds] = useState<string[]>([]);
   const selectedNodeIdsRef = useRef<string[]>([]);
   const selectedEdgeIdsRef = useRef<string[]>([]);
+  const nodeReadyToEditRef = useRef<string | null>(null);
   const [deleteRequest, setDeleteRequest] = useState<{ nodes: MindMapNode[]; edges: MindMapEdge[] } | null>(null);
   const [editingNode, setEditingNode] = useState<MindMapNode | null>(null);
   const [editLabel, setEditLabel] = useState("");
@@ -223,19 +225,58 @@ export function MindMapCanvas({
       setLocalSelectedNodeIds(nodeIds);
       setLocalSelectedEdgeIds(edgeIds);
       setNotice(undefined);
+      if (!nodeIds.length) nodeReadyToEditRef.current = null;
       onSelectionChange(nodeIds, selectedNodes[0]?.data.label);
     },
     [onSelectionChange],
   );
 
-  const editNode = useCallback(
-    (_event: React.MouseEvent, node: MindMapNode) => {
+  const openNodeEditor = useCallback(
+    (node: MindMapNode) => {
       if (!canEdit) return;
       setEditingNode(node);
       setEditLabel(node.data.label);
       setEditDescription(node.data.description ?? "");
     },
     [canEdit],
+  );
+
+  const editNode = useCallback(
+    (_event: React.MouseEvent, node: MindMapNode) => {
+      openNodeEditor(node);
+    },
+    [openNodeEditor],
+  );
+
+  const editSelected = useCallback(() => {
+    if (!canEdit) return;
+    const node = nodes.find((candidate) => candidate.id === selectedNodeIdsRef.current[0]);
+    if (!node) {
+      setNotice("Selecciona un nodo antes de editarlo.");
+      return;
+    }
+    openNodeEditor(node);
+  }, [canEdit, nodes, openNodeEditor]);
+
+  const handleNodeTap = useCallback(
+    (_event: React.MouseEvent, node: MindMapNode) => {
+      const shouldEdit = nodeReadyToEditRef.current === node.id;
+
+      selectedNodeIdsRef.current = [node.id];
+      selectedEdgeIdsRef.current = [];
+      setLocalSelectedNodeIds([node.id]);
+      setLocalSelectedEdgeIds([]);
+      setNotice(undefined);
+      onSelectionChange([node.id], node.data.label);
+
+      if (shouldEdit) {
+        openNodeEditor(node);
+        return;
+      }
+
+      nodeReadyToEditRef.current = node.id;
+    },
+    [onSelectionChange, openNodeEditor],
   );
 
   const saveNode = useCallback(
@@ -274,13 +315,14 @@ export function MindMapCanvas({
   useEffect(() => {
     registerCanvas({
       addNode: () => addNode(),
+      editSelected,
       deleteSelected,
       undo,
       autoLayout: fitLayout,
       addSuggestion: (input) => addNode("concept", input.parentNodeId || selectedNodeId || "node-root", { ...input, source: "ai" }),
       getStorage: storage,
     });
-  }, [addNode, deleteSelected, fitLayout, registerCanvas, selectedNodeId, storage, undo]);
+  }, [addNode, deleteSelected, editSelected, fitLayout, registerCanvas, selectedNodeId, storage, undo]);
 
   useEffect(() => {
     const rootTopic = nodes.find((node) => node.id === "node-root")?.data.label;
@@ -331,6 +373,7 @@ export function MindMapCanvas({
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onSelectionChange={handleSelection}
+          onNodeClick={handleNodeTap}
           onNodeDoubleClick={editNode}
           fitView
           nodesDraggable={canEdit}
