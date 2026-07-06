@@ -8,11 +8,14 @@ import { useArchiveMap, useCreateMap, useMaps } from "@/src/modules/maps";
 import { useCreateWorkspace, useDeleteWorkspace, useWorkspaces } from "@/src/modules/workspaces";
 import { useArchiveCourse, useCreateCourse, useWorkspaceCourses } from "@/src/modules/courses";
 import { useProfile } from "@/src/modules/profiles";
+import { useJoinSessionByCode } from "@/src/modules/sessions";
 import { EmptyState } from "@/src/shared/components/empty-state";
 import { ErrorState } from "@/src/shared/components/error-state";
+import { ConfirmDialog } from "@/src/shared/components/dialog";
 import { useAuth } from "@/src/shared/auth/use-auth";
 import { getUserDisplayName, getUserRole } from "@/src/shared/auth/user-display";
 import { formatDate } from "@/src/shared/lib/date";
+import { getErrorMessage } from "@/src/shared/api/api-error";
 
 function toSlug(value: string) {
   return value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || `workspace-${Date.now()}`;
@@ -47,7 +50,9 @@ export function DashboardPage() {
   const [mapTitle, setMapTitle] = useState("");
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [inviteValue, setInviteValue] = useState("");
+  const joinByCode = useJoinSessionByCode();
   const [lastSync, setLastSync] = useState("Ahora");
+  const [confirmation, setConfirmation] = useState<{ title: string; description: string; action: () => void } | null>(null);
   const workspaceList = useMemo(() => workspaces.data ?? [], [workspaces.data]);
   const effectiveSelectedWorkspaceId = selectedWorkspaceId || workspaceList[0]?.id || "";
   const selectedWorkspace = workspaceList.find((workspace) => workspace.id === effectiveSelectedWorkspaceId);
@@ -122,37 +127,56 @@ export function DashboardPage() {
 
   const submitInvite = (event: FormEvent) => {
     event.preventDefault();
-    const token = inviteTokenFrom(inviteValue);
+    const cleanValue = inviteValue.trim();
+    if (/^[a-z0-9]{4,12}$/i.test(cleanValue)) {
+      joinByCode.mutate(cleanValue, {
+        onSuccess: (result) => router.push(`/maps/${result.mapId}?sessionId=${result.sessionId}`),
+      });
+      return;
+    }
+    const token = inviteTokenFrom(cleanValue);
     if (!token) return;
     router.push(`/join/${token}`);
   };
 
   const requestDeleteWorkspace = (workspaceId: string, workspaceNameToDelete: string) => {
-    if (!window.confirm(`Eliminar el workspace "${workspaceNameToDelete}"? Tambien se eliminaran sus cursos y mapas.`)) return;
-    deleteWorkspace.mutate(workspaceId, {
-      onSuccess: () => {
-        if (workspaceId === effectiveSelectedWorkspaceId) {
-          setSelectedWorkspaceId("");
-          setSelectedCourseId("");
-        }
-      },
+    setConfirmation({
+      title: "Eliminar workspace",
+      description: `Se eliminara "${workspaceNameToDelete}" junto con sus cursos y mapas. Esta accion no se puede deshacer.`,
+      action: () =>
+        deleteWorkspace.mutate(workspaceId, {
+          onSuccess: () => {
+            if (workspaceId === effectiveSelectedWorkspaceId) {
+              setSelectedWorkspaceId("");
+              setSelectedCourseId("");
+            }
+          },
+        }),
     });
   };
 
   const requestArchiveCourse = (courseId: string, courseNameToArchive: string) => {
-    if (!selectedWorkspace || !window.confirm(`Eliminar el curso "${courseNameToArchive}"? Los canvas vinculados quedaran sin curso.`)) return;
-    archiveCourse.mutate(courseId, {
-      onSuccess: () => {
-        if (courseId === effectiveSelectedCourseId) {
-          setSelectedCourseId("");
-        }
-      },
+    if (!selectedWorkspace) return;
+    setConfirmation({
+      title: "Archivar curso",
+      description: `Se archivara "${courseNameToArchive}". Los canvas vinculados quedaran disponibles sin este curso.`,
+      action: () =>
+        archiveCourse.mutate(courseId, {
+          onSuccess: () => {
+            if (courseId === effectiveSelectedCourseId) {
+              setSelectedCourseId("");
+            }
+          },
+        }),
     });
   };
 
   const requestArchiveMap = (mapId: string, mapName: string) => {
-    if (!window.confirm(`Eliminar el canvas "${mapName}"? Se archivara y dejara de aparecer en la lista.`)) return;
-    archiveMap.mutate(mapId);
+    setConfirmation({
+      title: "Archivar mapa",
+      description: `El canvas "${mapName}" dejara de aparecer en tus mapas activos.`,
+      action: () => archiveMap.mutate(mapId),
+    });
   };
 
   return (
@@ -246,16 +270,17 @@ export function DashboardPage() {
             </span>
             <div className="min-w-0 flex-1">
               <h2 className="font-semibold">Modo alumno</h2>
-              <p className="mt-1 text-sm text-slate-500">Pega el enlace o token que te dio tu profesor para unirte al canvas.</p>
+              <p className="mt-1 text-sm text-slate-500">Pega el enlace, token o codigo de sesion que te dio tu profesor.</p>
             </div>
           </div>
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
-            <input className="field" value={inviteValue} onChange={(event) => setInviteValue(event.target.value)} placeholder="https://.../join/token o token" />
-            <button className="btn btn-primary sm:w-44" type="submit">
+            <input className="field" value={inviteValue} onChange={(event) => setInviteValue(event.target.value)} placeholder="Enlace o codigo (ej. A7K9P2)" />
+            <button className="btn btn-primary sm:w-44" type="submit" disabled={joinByCode.isPending}>
               <LogIn className="size-4" aria-hidden />
               Unirme
             </button>
           </div>
+          {joinByCode.error ? <p className="mt-3 rounded-md bg-red-50 p-3 text-sm text-red-800">{getErrorMessage(joinByCode.error)}</p> : null}
         </form>
       )}
 
@@ -366,6 +391,18 @@ export function DashboardPage() {
           </div>
         </section>
       </div>
+      <ConfirmDialog
+        open={Boolean(confirmation)}
+        title={confirmation?.title ?? ""}
+        description={confirmation?.description ?? ""}
+        confirmLabel="Continuar"
+        destructive
+        onConfirm={() => {
+          confirmation?.action();
+          setConfirmation(null);
+        }}
+        onClose={() => setConfirmation(null)}
+      />
     </div>
   );
 }

@@ -7,14 +7,17 @@ import {
   MiniMap,
   ReactFlow,
   ReactFlowProvider,
+  type EdgeChange,
   type NodeChange,
 } from "@xyflow/react";
 import { useOthers, useUndo } from "@liveblocks/react";
 import { Cursors, type CursorsCursorProps, useLiveblocksFlow } from "@liveblocks/react-flow";
-import { useCallback, useEffect, useMemo } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { env } from "@/src/shared/config/env";
 import { formatPresenceName } from "@/src/shared/auth/user-display";
 import { createLocalId } from "@/src/shared/lib/ids";
+import { ConfirmDialog, Dialog } from "@/src/shared/components/dialog";
+import { useUiStore } from "@/src/shared/store/ui-store";
 import { autoLayout } from "../utils/layout";
 import { createInitialCanvas } from "../utils/initial-canvas";
 import type { CanvasStorage, MindMapEdge, MindMapNode, MindMapNodeType } from "../types/canvas.types";
@@ -67,12 +70,31 @@ export function MindMapCanvas({
 }) {
   const initial = useMemo(() => createInitialCanvas(title, userId), [title, userId]);
   const undo = useUndo();
+  const connectMode = useUiStore((state) => state.connectMode);
   const flow = useLiveblocksFlow<MindMapNode, MindMapEdge>({
     nodes: { initial: initial.nodes },
     edges: { initial: initial.edges },
   });
   const nodes = flow.nodes ?? initial.nodes;
   const edges = flow.edges ?? initial.edges;
+  const [localSelectedNodeIds, setLocalSelectedNodeIds] = useState<string[]>([]);
+  const [localSelectedEdgeIds, setLocalSelectedEdgeIds] = useState<string[]>([]);
+  const selectedNodeIdsRef = useRef<string[]>([]);
+  const selectedEdgeIdsRef = useRef<string[]>([]);
+  const [deleteRequest, setDeleteRequest] = useState<{ nodes: MindMapNode[]; edges: MindMapEdge[] } | null>(null);
+  const [editingNode, setEditingNode] = useState<MindMapNode | null>(null);
+  const [editLabel, setEditLabel] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [notice, setNotice] = useState<string>();
+
+  const renderedNodes = useMemo(
+    () => nodes.map((node) => ({ ...node, selected: localSelectedNodeIds.includes(node.id) })),
+    [localSelectedNodeIds, nodes],
+  );
+  const renderedEdges = useMemo(
+    () => edges.map((edge) => ({ ...edge, selected: localSelectedEdgeIds.includes(edge.id) })),
+    [edges, localSelectedEdgeIds],
+  );
 
   const storage = useCallback(
     (): CanvasStorage => ({
@@ -122,26 +144,53 @@ export function MindMapCanvas({
   );
 
   const deleteSelected = useCallback(() => {
-    if (!canEdit || !selectedNodeId) return;
-    const deletable = selectedNodeId === "node-root" ? [] : [selectedNodeId];
-    if (selectedNodeId === "node-root") {
-      window.alert("El nodo raiz no puede eliminarse.");
-    }
-    if (deletable.length === 0) return;
+    if (!canEdit) return;
+    const selectedNodes = nodes.filter((node) => selectedNodeIdsRef.current.includes(node.id));
+    const selectedEdges = edges.filter((edge) => selectedEdgeIdsRef.current.includes(edge.id));
 
-    flow.onNodesChange(deletable.map((id) => ({ id, type: "remove" })));
-    flow.onEdgesChange(
-      edges
-        .filter((edge) => deletable.includes(edge.source) || deletable.includes(edge.target))
-        .map((edge) => ({ id: edge.id, type: "remove" })),
+    if (selectedNodes.some((node) => node.id === "node-root")) {
+      setNotice("El nodo raiz esta protegido y no se puede eliminar.");
+      return;
+    }
+    if (!selectedNodes.length && !selectedEdges.length) {
+      setNotice("Selecciona un nodo o una conexion antes de eliminar.");
+      return;
+    }
+
+    const nodeIds = new Set(selectedNodes.map((node) => node.id));
+    const connectedEdges = edges.filter((edge) => nodeIds.has(edge.source) || nodeIds.has(edge.target));
+    const allEdges = [...selectedEdges, ...connectedEdges].filter(
+      (edge, index, collection) => collection.findIndex((candidate) => candidate.id === edge.id) === index,
     );
+    setDeleteRequest({ nodes: selectedNodes, edges: allEdges });
+  }, [canEdit, edges, nodes]);
+
+  const confirmDelete = useCallback(() => {
+    if (!deleteRequest) return;
+    flow.onDelete(deleteRequest);
+    selectedNodeIdsRef.current = [];
+    selectedEdgeIdsRef.current = [];
+    setLocalSelectedNodeIds([]);
+    setLocalSelectedEdgeIds([]);
     onSelectionChange([]);
-  }, [canEdit, edges, flow, onSelectionChange, selectedNodeId]);
+    setDeleteRequest(null);
+    setNotice(deleteRequest.nodes.length ? "Nodo eliminado correctamente." : "Conexion eliminada correctamente.");
+  }, [deleteRequest, flow, onSelectionChange]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<MindMapNode>[]) => {
       if (!canEdit) return;
-      flow.onNodesChange(changes);
+      const storageChanges = changes.filter((change) => change.type !== "select");
+      if (storageChanges.length) flow.onNodesChange(storageChanges);
+    },
+    [canEdit, flow],
+  );
+
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange<MindMapEdge>[]) => {
+      if (!canEdit) return;
+      const storageChanges = changes.filter((change) => change.type !== "select");
+      if (storageChanges.length) flow.onEdgesChange(storageChanges);
     },
     [canEdit, flow],
   );
@@ -151,7 +200,7 @@ export function MindMapCanvas({
       if (!canEdit || !connection.source || !connection.target || flow.isLoading) return;
       const duplicate = edges.some((edge) => edge.source === connection.source && edge.target === connection.target);
       if (duplicate) {
-        window.alert("La conexion ya existe.");
+        setNotice("Esa conexion ya existe.");
         return;
       }
       const nextEdge: MindMapEdge = {
@@ -166,11 +215,53 @@ export function MindMapCanvas({
   );
 
   const handleSelection = useCallback(
-    ({ nodes: selectedNodes }: { nodes: MindMapNode[] }) => {
-      const ids = selectedNodes.map((node) => node.id);
-      onSelectionChange(ids, selectedNodes[0]?.data.label);
+    ({ nodes: selectedNodes, edges: selectedEdges }: { nodes: MindMapNode[]; edges: MindMapEdge[] }) => {
+      const nodeIds = selectedNodes.map((node) => node.id);
+      const edgeIds = selectedEdges.map((edge) => edge.id);
+      selectedNodeIdsRef.current = nodeIds;
+      selectedEdgeIdsRef.current = edgeIds;
+      setLocalSelectedNodeIds(nodeIds);
+      setLocalSelectedEdgeIds(edgeIds);
+      setNotice(undefined);
+      onSelectionChange(nodeIds, selectedNodes[0]?.data.label);
     },
     [onSelectionChange],
+  );
+
+  const editNode = useCallback(
+    (_event: React.MouseEvent, node: MindMapNode) => {
+      if (!canEdit) return;
+      setEditingNode(node);
+      setEditLabel(node.data.label);
+      setEditDescription(node.data.description ?? "");
+    },
+    [canEdit],
+  );
+
+  const saveNode = useCallback(
+    (event: FormEvent) => {
+      event.preventDefault();
+      const label = editLabel.trim();
+      if (!editingNode || !label) return;
+      flow.onNodesChange([
+        {
+          id: editingNode.id,
+          type: "replace",
+          item: {
+            ...editingNode,
+            data: {
+              ...editingNode.data,
+              label,
+              description: editDescription.trim() || undefined,
+              updatedAt: new Date().toISOString(),
+            },
+          },
+        },
+      ]);
+      setEditingNode(null);
+      setNotice("Nodo actualizado correctamente.");
+    },
+    [editDescription, editLabel, editingNode, flow],
   );
 
   const fitLayout = useCallback(() => {
@@ -197,6 +288,12 @@ export function MindMapCanvas({
       onRootTopicChange?.(rootTopic);
     }
   }, [nodes, onRootTopicChange]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(undefined), 3_500);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -227,25 +324,71 @@ export function MindMapCanvas({
     <ReactFlowProvider>
       <div className="h-full min-h-[520px] w-full">
         <ReactFlow
-          nodes={nodes}
-          edges={edges}
+          nodes={renderedNodes}
+          edges={renderedEdges}
           nodeTypes={nodeTypes}
           onNodesChange={onNodesChange}
-          onEdgesChange={canEdit ? flow.onEdgesChange : undefined}
-          onDelete={canEdit ? flow.onDelete : undefined}
+          onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           onSelectionChange={handleSelection}
+          onNodeDoubleClick={editNode}
           fitView
           nodesDraggable={canEdit}
-          nodesConnectable={canEdit}
+          nodesConnectable={canEdit && connectMode}
           elementsSelectable
+          deleteKeyCode={null}
         >
           <Background gap={24} color="#d7dee8" />
           <Controls position="bottom-left" />
           <Cursors components={{ Cursor: CollaborativeCursor }} />
           {env.enableMinimap ? <MiniMap pannable zoomable nodeStrokeWidth={3} /> : null}
         </ReactFlow>
+        {notice ? (
+          <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2 rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm" role="status">
+            {notice}
+          </div>
+        ) : null}
       </div>
+      <ConfirmDialog
+        open={Boolean(deleteRequest)}
+        title={deleteRequest?.nodes.length ? "Eliminar nodo" : "Eliminar conexion"}
+        description={
+          deleteRequest?.nodes.length
+            ? `Se eliminara "${deleteRequest.nodes[0]?.data.label}" y ${deleteRequest.edges.length} conexion(es) asociada(s).`
+            : "La conexion seleccionada se eliminara del mapa colaborativo."
+        }
+        confirmLabel="Eliminar"
+        destructive
+        onConfirm={confirmDelete}
+        onClose={() => setDeleteRequest(null)}
+      />
+      <Dialog
+        open={Boolean(editingNode)}
+        title="Editar nodo"
+        description="Actualiza el contenido visible para todos los participantes."
+        onClose={() => setEditingNode(null)}
+        footer={
+          <>
+            <button className="btn btn-secondary" type="button" onClick={() => setEditingNode(null)}>
+              Cancelar
+            </button>
+            <button className="btn btn-primary" type="submit" form="edit-node-form" disabled={!editLabel.trim()}>
+              Guardar cambios
+            </button>
+          </>
+        }
+      >
+        <form id="edit-node-form" className="space-y-4" onSubmit={saveNode}>
+          <label className="block text-sm font-medium">
+            Titulo
+            <input className="field mt-2" value={editLabel} onChange={(event) => setEditLabel(event.target.value)} maxLength={160} autoFocus />
+          </label>
+          <label className="block text-sm font-medium">
+            Descripcion
+            <textarea className="field textarea mt-2" value={editDescription} onChange={(event) => setEditDescription(event.target.value)} maxLength={500} />
+          </label>
+        </form>
+      </Dialog>
     </ReactFlowProvider>
   );
 }

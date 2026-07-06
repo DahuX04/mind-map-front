@@ -16,3 +16,16 @@ export type CreateWorkspaceInput = {
   slug: string;
   type?: WorkspaceType;
 };
+
+export type WorkspaceMember = {
+  workspaceId: string;
+  userId: string;
+  role: WorkspaceRole;
+  createdAt: string;
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
+};

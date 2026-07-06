@@ -5,16 +5,24 @@ import { FormEvent, useMemo, useState } from "react";
 import { BookOpen, Plus } from "lucide-react";
 import { useCreateCourse, useWorkspaceCourses } from "@/src/modules/courses";
 import { useMaps } from "@/src/modules/maps";
-import { useWorkspaces } from "../hooks/use-workspaces";
+import { MemberManagement } from "@/src/shared/components/member-management";
+import { useAuth } from "@/src/shared/auth/use-auth";
+import { useManageWorkspaceMembers, useWorkspaceMembers, useWorkspaces } from "../hooks/use-workspaces";
+import type { WorkspaceRole } from "../types/workspace.types";
 
 export function WorkspacePage({ workspaceId }: { workspaceId: string }) {
   const workspaces = useWorkspaces();
+  const auth = useAuth();
+  const members = useWorkspaceMembers(workspaceId);
+  const manageMembers = useManageWorkspaceMembers(workspaceId);
   const courses = useWorkspaceCourses(workspaceId);
   const maps = useMaps();
   const createCourse = useCreateCourse(workspaceId);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const workspace = workspaces.data?.find((item) => item.id === workspaceId);
+  const myWorkspaceRole = members.data?.find((member) => member.userId === auth.user?.id)?.role;
+  const canManageMembers = workspace?.createdBy === auth.user?.id || myWorkspaceRole === "owner" || myWorkspaceRole === "admin";
   const workspaceMaps = useMemo(() => maps.data?.filter((map) => map.workspaceId === workspaceId) ?? [], [maps.data, workspaceId]);
 
   const submit = (event: FormEvent) => {
@@ -74,6 +82,26 @@ export function WorkspacePage({ workspaceId }: { workspaceId: string }) {
           </div>
         </section>
       </div>
+
+      <MemberManagement
+        members={(members.data ?? []).map((member) => ({
+          userId: member.userId,
+          access: member.role,
+          displayName: member.user.displayName,
+          email: member.user.email,
+        }))}
+        accessOptions={[
+          { value: "admin", label: "Administrador" },
+          { value: "teacher", label: "Docente" },
+          { value: "student", label: "Estudiante" },
+        ]}
+        canManage={canManageMembers}
+        loading={members.isLoading}
+        error={members.error}
+        onAdd={(userId, role) => manageMembers.add.mutateAsync({ userId, role: role as WorkspaceRole })}
+        onUpdate={(userId, role) => manageMembers.update.mutateAsync({ userId, role: role as WorkspaceRole })}
+        onRemove={(userId) => manageMembers.remove.mutateAsync(userId)}
+      />
     </div>
   );
 }

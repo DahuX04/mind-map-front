@@ -1,5 +1,5 @@
 export type AiSuggestion = {
-  id?: string;
+  id: string;
   label: string;
   description?: string;
   reason?: string;
@@ -7,11 +7,30 @@ export type AiSuggestion = {
 };
 
 export type AiSuggestionsResponse = {
-  requestId?: string;
+  requestId: string;
   suggestions: AiSuggestion[];
+  dataProcessingNotice: string;
 };
 
 export type AiQuestionResponse = {
-  conversationId?: string;
   answer: string;
+  dataProcessingNotice: string;
+};
+
+export type AiSummaryResponse = {
+  summary: string;
+  nodeCount: number;
+  edgeCount: number;
+};
+
+export type RequestAiSuggestionsInput = {
+  selectedNodeId?: string;
+  prompt?: string;
+  maxSuggestions?: number;
+  rootTopic?: string;
+};
+
+export type AskAiQuestionInput = {
+  question: string;
+  rootTopic?: string;
 };

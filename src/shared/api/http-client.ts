@@ -9,12 +9,24 @@ type RequestOptions = Omit<RequestInit, "body"> & {
 };
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const {
+    body,
+    timeoutMs = 15_000,
+    auth = true,
+    headers,
+    signal: externalSignal,
+    ...requestInit
+  } = options;
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? 15000);
-  const token = await getAccessToken();
+  const timeout = globalThis.setTimeout(() => controller.abort(), timeoutMs);
+  const requiresAuth = auth;
+  const token = requiresAuth ? await getAccessToken() : null;
+  const hasBody = body !== undefined;
+  const abortFromCaller = () => controller.abort();
+  externalSignal?.addEventListener("abort", abortFromCaller, { once: true });
 
   try {
-    if (options.auth !== false && !token) {
+    if (requiresAuth && !token) {
       throw new ApiError(401, {
         code: "AUTH_SESSION_REQUIRED",
         message: "Inicia sesion nuevamente para continuar.",
@@ -22,14 +34,15 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     }
 
     const response = await fetch(`${env.apiUrl}${path}`, {
-      ...options,
+      ...requestInit,
       signal: controller.signal,
       headers: {
-        "Content-Type": "application/json",
-        ...(options.auth !== false && token ? { Authorization: `Bearer ${token}` } : {}),
-        ...options.headers,
+        Accept: "application/json",
+        ...(hasBody ? { "Content-Type": "application/json" } : {}),
+        ...(requiresAuth && token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
       },
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: hasBody ? JSON.stringify(body) : undefined,
     });
 
     if (!response.ok) {
@@ -50,8 +63,17 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     }
 
     return (await response.json()) as T;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new ApiError(408, {
+        code: "REQUEST_TIMEOUT",
+        message: "La solicitud demoro demasiado. Verifica tu conexion e intenta nuevamente.",
+      });
+    }
+    throw error;
   } finally {
-    window.clearTimeout(timeout);
+    globalThis.clearTimeout(timeout);
+    externalSignal?.removeEventListener("abort", abortFromCaller);
   }
 }
 

@@ -1,11 +1,45 @@
 import { api } from "@/src/shared/api/http-client";
-import type { AcceptedInvite, CollaborationSession, MapInvite, ResolvedInvite } from "../types/session.types";
+import type {
+  AcceptedInvite,
+  CollaborationSession,
+  CreateInviteInput,
+  CreateSessionInput,
+  EndedSession,
+  JoinedSession,
+  MapInvite,
+  ResolvedInvite,
+  SessionMetrics,
+} from "../types/session.types";
 
-export function createSession(mapId: string, input: { title?: string; maxParticipants?: number }) {
+export function createSession(mapId: string, input: CreateSessionInput) {
   return api.post<CollaborationSession>(`/maps/${mapId}/sessions`, input);
 }
 
-export function createInvite(mapId: string, input: { sessionId?: string; permission?: "editor" | "viewer"; maxUses?: number }) {
+export function listSessions(mapId: string) {
+  return api.get<CollaborationSession[]>(`/maps/${mapId}/sessions`);
+}
+
+export function startSession(sessionId: string) {
+  return api.post<CollaborationSession>(`/sessions/${sessionId}/start`);
+}
+
+export function endSession(sessionId: string, canvasState?: Record<string, unknown>) {
+  return api.post<EndedSession>(`/sessions/${sessionId}/end`, canvasState ? { canvasState, schemaVersion: 1 } : {});
+}
+
+export function joinSessionByCode(code: string) {
+  return api.post<JoinedSession>("/sessions/join-by-code", { code: code.trim().toUpperCase() });
+}
+
+export function sendSessionHeartbeat(sessionId: string) {
+  return api.post<{ active: true }>(`/sessions/${sessionId}/heartbeat`);
+}
+
+export function getSessionMetrics(sessionId: string) {
+  return api.get<SessionMetrics>(`/sessions/${sessionId}/metrics`);
+}
+
+export function createInvite(mapId: string, input: CreateInviteInput) {
   return api.post<MapInvite>(`/maps/${mapId}/invites`, input);
 }
 
@@ -15,4 +49,8 @@ export function resolveInvite(token: string) {
 
 export function acceptInvite(token: string) {
   return api.post<AcceptedInvite>(`/invites/${token}/accept`);
+}
+
+export function revokeInvite(inviteId: string) {
+  return api.delete<MapInvite>(`/invites/${inviteId}`);
 }

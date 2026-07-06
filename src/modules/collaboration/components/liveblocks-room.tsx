@@ -2,12 +2,7 @@
 
 import { LiveblocksProvider, RoomProvider } from "@liveblocks/react";
 import { ReactNode, useMemo } from "react";
-import { api } from "@/src/shared/api/http-client";
-
-type CollaborationAuthResponse = {
-  token?: string;
-  roomId?: string;
-};
+import { requestCollaborationToken } from "../api/collaboration.client";
 
 export function LiveblocksRoom({
   mapId,
@@ -20,7 +15,7 @@ export function LiveblocksRoom({
 }) {
   const authEndpoint = useMemo(
     () => async () => {
-      const result = await api.post<CollaborationAuthResponse>(`/maps/${mapId}/collaboration-token`);
+      const result = await requestCollaborationToken(mapId);
 
       if (!result.token) {
         return {

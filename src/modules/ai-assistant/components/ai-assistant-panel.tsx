@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation } from "@tanstack/react-query";
-import { Bot, Check, MessageSquare, Plus, Send, X } from "lucide-react";
+import { Bot, Check, FileText, MessageSquare, Plus, Send, ShieldCheck, X } from "lucide-react";
 import { FormEvent, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -9,7 +9,8 @@ import { getErrorMessage } from "@/src/shared/api/api-error";
 import { env } from "@/src/shared/config/env";
 import { cn } from "@/src/shared/lib/cn";
 import { useUiStore } from "@/src/shared/store/ui-store";
-import { askAiQuestion, requestSuggestions } from "../api/ai.client";
+import type { CanvasStorage } from "@/src/modules/canvas";
+import { askAiQuestion, decideAiSuggestion, requestSuggestions, summarizeMap } from "../api/ai.client";
 import type { AiSuggestion } from "../types/ai.types";
 
 type ChatMessage = {
@@ -24,6 +25,7 @@ export function AiAssistantPanel({
   rootTopic,
   canEdit,
   onAcceptSuggestion,
+  getCanvasState,
 }: {
   mapId: string;
   selectedNodeId?: string;
@@ -31,6 +33,7 @@ export function AiAssistantPanel({
   rootTopic?: string;
   canEdit: boolean;
   onAcceptSuggestion: (suggestion: AiSuggestion) => void;
+  getCanvasState: () => CanvasStorage | undefined;
 }) {
   const activeTab = useUiStore((state) => state.activeAiTab);
   const setActiveTab = useUiStore((state) => state.setActiveAiTab);
@@ -38,14 +41,14 @@ export function AiAssistantPanel({
   const [question, setQuestion] = useState("");
   const [suggestions, setSuggestions] = useState<AiSuggestion[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [summary, setSummary] = useState("");
 
   const suggestionsMutation = useMutation({
     mutationFn: () =>
       requestSuggestions(mapId, {
         selectedNodeId,
-        intent: "expand-branch",
-        maxSuggestions: 4,
         prompt: prompt.trim() || undefined,
+        maxSuggestions: 4,
         rootTopic,
       }),
     onSuccess: (result) => setSuggestions(result.suggestions),
@@ -55,10 +58,23 @@ export function AiAssistantPanel({
     mutationFn: (value: string) =>
       askAiQuestion(mapId, {
         question: value,
-        selectedNodeId,
         rootTopic,
       }),
     onSuccess: (result) => setMessages((current) => [...current, { role: "assistant", content: result.answer }]),
+  });
+
+  const decisionMutation = useMutation({
+    mutationFn: ({ suggestion, decision }: { suggestion: AiSuggestion; decision: "accepted" | "rejected" }) =>
+      decideAiSuggestion(mapId, suggestion.id, decision),
+  });
+
+  const summaryMutation = useMutation({
+    mutationFn: () => {
+      const canvas = getCanvasState();
+      if (!canvas) throw new Error("El canvas aun no esta listo.");
+      return summarizeMap(mapId, canvas, rootTopic);
+    },
+    onSuccess: (result) => setSummary(result.summary),
   });
 
   const sendQuestion = (event: FormEvent) => {
@@ -71,8 +87,22 @@ export function AiAssistantPanel({
   };
 
   const accept = (suggestion: AiSuggestion) => {
-    onAcceptSuggestion(suggestion);
-    setSuggestions((current) => current.filter((item) => item !== suggestion));
+    decisionMutation.mutate(
+      { suggestion, decision: "accepted" },
+      {
+        onSuccess: () => {
+          onAcceptSuggestion(suggestion);
+          setSuggestions((current) => current.filter((item) => item !== suggestion));
+        },
+      },
+    );
+  };
+
+  const reject = (suggestion: AiSuggestion) => {
+    decisionMutation.mutate(
+      { suggestion, decision: "rejected" },
+      { onSuccess: () => setSuggestions((current) => current.filter((item) => item !== suggestion)) },
+    );
   };
 
   if (!env.enableAi) {
@@ -112,6 +142,10 @@ export function AiAssistantPanel({
             <p className="mt-1 text-xs text-slate-500">{selectedNodeLabel ?? selectedNodeId ?? "Se usara el nodo raiz."}</p>
             <p className="mt-2 text-xs leading-5 text-slate-500">Tema autorizado: {rootTopic ?? "nodo raiz del mapa"}</p>
           </div>
+          <div className="flex gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0" aria-hidden />
+            La IA procesara el tema y el nodo seleccionado. Sus propuestas no modifican el mapa hasta que las aceptes.
+          </div>
           <textarea
             className="field textarea"
             value={prompt}
@@ -128,6 +162,7 @@ export function AiAssistantPanel({
             Sugerir nodos
           </button>
           {suggestionsMutation.error ? <p className="text-sm text-red-700">{getErrorMessage(suggestionsMutation.error)}</p> : null}
+          {decisionMutation.error ? <p className="text-sm text-red-700">{getErrorMessage(decisionMutation.error)}</p> : null}
           <div className="space-y-3">
             {suggestions.map((suggestion, index) => (
               <div key={`${suggestion.label}-${index}`} className="rounded-md border border-violet-200 bg-violet-50 p-3">
@@ -135,11 +170,11 @@ export function AiAssistantPanel({
                 {suggestion.description ? <p className="mt-1 text-xs leading-5 text-violet-900">{suggestion.description}</p> : null}
                 {suggestion.reason ? <p className="mt-2 text-xs leading-5 text-violet-700">Motivo: {suggestion.reason}</p> : null}
                 <div className="mt-3 flex gap-2">
-                  <button className="btn btn-primary h-9" type="button" onClick={() => accept(suggestion)} disabled={!canEdit}>
+                  <button className="btn btn-primary h-9" type="button" onClick={() => accept(suggestion)} disabled={!canEdit || decisionMutation.isPending}>
                     <Check className="size-4" aria-hidden />
                     Agregar
                   </button>
-                  <button className="btn btn-secondary h-9" type="button" onClick={() => setSuggestions((current) => current.filter((item) => item !== suggestion))}>
+                  <button className="btn btn-secondary h-9" type="button" onClick={() => reject(suggestion)} disabled={decisionMutation.isPending}>
                     <X className="size-4" aria-hidden />
                     Descartar
                   </button>
@@ -165,6 +200,12 @@ export function AiAssistantPanel({
             {questionMutation.error ? <p className="text-sm text-red-700">{getErrorMessage(questionMutation.error)}</p> : null}
           </div>
           <div className="border-t border-slate-200 p-3">
+            <button className="btn btn-secondary mb-2 w-full" type="button" onClick={() => summaryMutation.mutate()} disabled={summaryMutation.isPending}>
+              <FileText className="size-4" aria-hidden />
+              {summaryMutation.isPending ? "Resumiendo..." : "Resumir mapa"}
+            </button>
+            {summary ? <div className="mb-3 max-h-40 overflow-auto rounded-md bg-violet-50 p-3 text-sm leading-6 text-violet-950"><MarkdownMessage content={summary} /></div> : null}
+            {summaryMutation.error ? <p className="mb-2 text-sm text-red-700">{getErrorMessage(summaryMutation.error)}</p> : null}
             <textarea className="field textarea min-h-24" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Escribe una pregunta..." />
             <button className="btn btn-primary mt-2 w-full" type="submit" disabled={questionMutation.isPending}>
               <Send className="size-4" aria-hidden />

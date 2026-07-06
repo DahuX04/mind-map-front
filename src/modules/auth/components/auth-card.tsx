@@ -101,6 +101,18 @@ export function AuthCard({ mode }: { mode: "login" | "register" }) {
           Contrasena
           <input className="field mt-2" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={6} />
         </label>
+        {mode === "register" ? (
+          <label className="mt-4 flex items-start gap-3 text-sm leading-6 text-slate-600">
+            <input className="mt-1 size-4" type="checkbox" required />
+            <span>
+              He leido el resumen de{" "}
+              <Link className="font-semibold text-teal-700 hover:underline" href="/privacy" target="_blank">
+                privacidad y uso responsable de IA
+              </Link>
+              .
+            </span>
+          </label>
+        ) : null}
         {error ? <p className="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-800">{error}</p> : null}
         <button className="btn btn-primary mt-6 w-full" type="submit" disabled={loading}>
           {loading ? "Procesando..." : mode === "login" ? "Ingresar" : "Registrarme"}

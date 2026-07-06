@@ -19,7 +19,10 @@ export function JoinInvitePage({ token }: { token: string }) {
   });
   const accept = useMutation({
     mutationFn: () => acceptInvite(token),
-    onSuccess: (result) => router.push(result.redirectTo),
+    onSuccess: (result) => {
+      const sessionId = invite.data?.session?.id;
+      router.push(sessionId ? `${result.redirectTo}?sessionId=${encodeURIComponent(sessionId)}` : result.redirectTo);
+    },
   });
 
   const needsLogin = auth.configured && !auth.loading && !auth.user;

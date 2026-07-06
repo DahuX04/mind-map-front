@@ -12,6 +12,7 @@ export type MindMapRecord = {
   canvasSchemaVersion: number;
   status: MapStatus;
   permission?: MapPermission;
+  editingLocked?: boolean;
   createdAt: string;
   updatedAt: string;
   archivedAt?: string | null;
@@ -42,6 +43,21 @@ export type MindMapRecord = {
     createdAt: string;
     updatedAt: string;
   }>;
+};
+
+export type MapMember = {
+  mapId: string;
+  userId: string;
+  permission: MapPermission;
+  grantedBy: string;
+  createdAt: string;
+  updatedAt: string;
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
 };
 
 export type CreateMapInput = {

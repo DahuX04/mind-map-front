@@ -1,5 +1,6 @@
 import { GitBranchPlus, LayoutGrid, Plus, Save, Trash2, Undo2 } from "lucide-react";
 import { useUiStore } from "@/src/shared/store/ui-store";
+import { cn } from "@/src/shared/lib/cn";
 
 export function CanvasToolbar({
   canEdit,
@@ -27,12 +28,12 @@ export function CanvasToolbar({
         <Plus className="size-4" aria-hidden />
       </button>
       <button
-        className="btn btn-secondary size-11 p-0"
+        className={cn("btn size-11 p-0", connectMode ? "btn-primary" : "btn-secondary")}
         type="button"
         onClick={() => setConnectMode(!connectMode)}
         disabled={!canEdit}
-        aria-label="Modo conectar"
-        title="Modo conectar"
+        aria-label={connectMode ? "Salir del modo conectar" : "Activar modo conectar"}
+        title={connectMode ? "Salir del modo conectar" : "Conectar nodos"}
       >
         <GitBranchPlus className="size-4" aria-hidden />
       </button>

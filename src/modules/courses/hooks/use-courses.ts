@@ -1,6 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { archiveCourse, createCourse, listWorkspaceCourses } from "../api/courses.client";
-import type { CreateCourseInput } from "../types/course.types";
+import {
+  addCourseMember,
+  archiveCourse,
+  createCourse,
+  getCourse,
+  listCourseMembers,
+  listWorkspaceCourses,
+  removeCourseMember,
+  updateCourseMember,
+} from "../api/courses.client";
+import type { CourseRole, CreateCourseInput } from "../types/course.types";
 
 export function useWorkspaceCourses(workspaceId?: string) {
   return useQuery({
@@ -8,6 +17,42 @@ export function useWorkspaceCourses(workspaceId?: string) {
     queryFn: () => listWorkspaceCourses(workspaceId as string),
     enabled: Boolean(workspaceId),
   });
+}
+
+export function useCourse(courseId: string) {
+  return useQuery({
+    queryKey: ["courses", courseId],
+    queryFn: () => getCourse(courseId),
+    enabled: Boolean(courseId),
+  });
+}
+
+export function useCourseMembers(courseId: string) {
+  return useQuery({
+    queryKey: ["courses", courseId, "members"],
+    queryFn: () => listCourseMembers(courseId),
+    enabled: Boolean(courseId),
+  });
+}
+
+export function useManageCourseMembers(courseId: string) {
+  const queryClient = useQueryClient();
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["courses", courseId, "members"] });
+
+  return {
+    add: useMutation({
+      mutationFn: (input: { userId: string; role: CourseRole }) => addCourseMember(courseId, input),
+      onSuccess: invalidate,
+    }),
+    update: useMutation({
+      mutationFn: (input: { userId: string; role: CourseRole }) => updateCourseMember(courseId, input.userId, input.role),
+      onSuccess: invalidate,
+    }),
+    remove: useMutation({
+      mutationFn: (userId: string) => removeCourseMember(courseId, userId),
+      onSuccess: invalidate,
+    }),
+  };
 }
 
 export function useCreateCourse(workspaceId: string) {

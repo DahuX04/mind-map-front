@@ -15,3 +15,16 @@ export type CreateCourseInput = {
   name: string;
   description?: string;
 };
+
+export type CourseMember = {
+  courseId: string;
+  userId: string;
+  role: CourseRole;
+  createdAt: string;
+  user: {
+    id: string;
+    email: string;
+    displayName: string;
+    avatarUrl?: string | null;
+  };
+};

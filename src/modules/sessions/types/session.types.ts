@@ -11,6 +11,10 @@ export type CollaborationSession = {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
+  joinCode?: string;
+  _count?: {
+    participants: number;
+  };
 };
 
 export type MapInvite = {
@@ -25,6 +29,43 @@ export type MapInvite = {
   useCount: number;
   createdBy: string;
   createdAt: string;
+};
+
+export type CreateSessionInput = {
+  title?: string;
+  startsAt?: string;
+  endsAt?: string;
+  maxParticipants?: number;
+};
+
+export type CreateInviteInput = {
+  sessionId?: string;
+  permission?: "editor" | "viewer";
+  expiresAt?: string;
+  maxUses?: number;
+};
+
+export type JoinedSession = {
+  sessionId: string;
+  mapId: string;
+  permission: "editor";
+  joined: true;
+};
+
+export type SessionMetrics = {
+  sessionId: string;
+  participants: number;
+  activeParticipants: number;
+  nodesCreated: number;
+  status: CollaborationSession["status"];
+  startedAt?: string | null;
+  endedAt?: string | null;
+};
+
+export type EndedSession = {
+  session: CollaborationSession;
+  snapshot: unknown | null;
+  metrics: SessionMetrics;
 };
 
 export type ResolvedInvite = {

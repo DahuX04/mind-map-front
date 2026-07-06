@@ -2,7 +2,7 @@
 
 import { memo } from "react";
 import { Handle, NodeProps, Position } from "@xyflow/react";
-import { Lightbulb, MessageCircleQuestion, Sparkles } from "lucide-react";
+import { Check, Lightbulb, MessageCircleQuestion, Sparkles } from "lucide-react";
 import { cn } from "@/src/shared/lib/cn";
 import type { MindMapNode } from "../types/canvas.types";
 
@@ -20,11 +20,18 @@ function MindMapNodeComponent({ data, selected }: NodeProps<MindMapNode>) {
   return (
     <div
       className={cn(
-        "min-w-52 max-w-64 rounded-lg border-2 px-4 py-3 shadow-sm",
+        "relative min-w-52 max-w-64 rounded-lg border-2 px-4 py-3 shadow-sm transition-[border-color,box-shadow,transform] duration-150",
         typeStyles[data.nodeType],
-        selected && "ring-4 ring-teal-200",
+        selected && "z-10 scale-[1.03] !border-teal-600 ring-4 ring-teal-300 ring-offset-2 ring-offset-[var(--app-bg)] shadow-lg",
       )}
+      aria-selected={selected}
     >
+      {selected ? (
+        <span className="absolute -right-3 -top-3 flex items-center gap-1 rounded-full bg-teal-700 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-white shadow-sm">
+          <Check className="size-3" strokeWidth={3} aria-hidden />
+          Seleccionado
+        </span>
+      ) : null}
       <Handle type="target" position={Position.Left} className="!size-2.5 !border-slate-500 !bg-white" />
       <div className="flex items-start gap-2">
         <Icon className="mt-0.5 size-4 shrink-0" aria-hidden />

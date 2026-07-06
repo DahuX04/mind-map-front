@@ -13,3 +13,11 @@ export function createSnapshot(mapId: string, canvasState: CanvasStorage) {
     canvasState,
   });
 }
+
+export function getSnapshot(mapId: string, snapshotId: string) {
+  return api.get<MapSnapshot>(`/maps/${mapId}/snapshots/${snapshotId}`);
+}
+
+export function restoreSnapshot(mapId: string, snapshotId: string) {
+  return api.post<{ snapshot: MapSnapshot; provider: unknown }>(`/maps/${mapId}/snapshots/${snapshotId}/restore`);
+}
