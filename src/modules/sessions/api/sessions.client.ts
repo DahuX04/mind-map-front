@@ -5,6 +5,8 @@ import type {
   CreateInviteInput,
   CreateSessionInput,
   EndedSession,
+  GuestAccess,
+  GuestCollaborationToken,
   JoinedSession,
   MapInvite,
   ResolvedInvite,
@@ -49,6 +51,21 @@ export function resolveInvite(token: string) {
 
 export function acceptInvite(token: string) {
   return api.post<AcceptedInvite>(`/invites/${token}/accept`);
+}
+
+export function joinInviteAsGuest(token: string, displayName: string) {
+  return api.post<GuestAccess>(
+    `/invites/${encodeURIComponent(token)}/guest-access`,
+    { displayName: displayName.trim() },
+    { auth: false },
+  );
+}
+
+export function requestGuestCollaborationToken(accessToken: string) {
+  return api.post<GuestCollaborationToken>("/guest/collaboration-token", undefined, {
+    auth: false,
+    headers: { Authorization: `Guest ${accessToken}` },
+  });
 }
 
 export function revokeInvite(inviteId: string) {

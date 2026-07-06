@@ -15,10 +15,19 @@ import { useAuth } from "@/src/shared/auth/use-auth";
 import { useMap, useUpdateMap } from "../hooks/use-maps";
 import { MapAccessPanel } from "./map-access-panel";
 import { MapTutorial } from "./map-tutorial";
+import type { GuestAccess } from "@/src/modules/sessions";
 
-export function MapEditorPage({ mapId, sessionId }: { mapId: string; sessionId?: string }) {
+export function MapEditorPage({
+  mapId,
+  sessionId,
+  guestAccess,
+}: {
+  mapId: string;
+  sessionId?: string;
+  guestAccess?: GuestAccess;
+}) {
   const auth = useAuth();
-  const map = useMap(mapId);
+  const map = useMap(guestAccess ? undefined : mapId);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedNodeLabel, setSelectedNodeLabel] = useState<string | undefined>();
   const [rootTopic, setRootTopic] = useState<string | undefined>();
@@ -28,8 +37,19 @@ export function MapEditorPage({ mapId, sessionId }: { mapId: string; sessionId?:
   const [accessOpen, setAccessOpen] = useState(false);
   const updateMap = useUpdateMap(mapId);
 
-  const isOwner = (map.data?.permission ?? "owner") === "owner";
-  const canEdit = isOwner || ((map.data?.permission ?? "owner") !== "viewer" && !map.data?.editingLocked);
+  const mapData = guestAccess
+    ? {
+        ...guestAccess.map,
+        liveblocksRoomId: guestAccess.collaboration.roomId,
+        permission: guestAccess.permission,
+        editingLocked: guestAccess.permission === "viewer",
+      }
+    : map.data;
+  const isGuest = Boolean(guestAccess);
+  const isOwner = !isGuest && (mapData?.permission ?? "owner") === "owner";
+  const canEdit = isGuest
+    ? guestAccess?.permission === "editor"
+    : isOwner || ((mapData?.permission ?? "owner") !== "viewer" && !mapData?.editingLocked);
   const canSnapshot = isOwner;
 
   const snapshotMutation = useMutation({
@@ -44,7 +64,7 @@ export function MapEditorPage({ mapId, sessionId }: { mapId: string; sessionId?:
   }, []);
 
   const selectedNodeId = selectedNodeIds[0];
-  const userId = auth.user?.id ?? "local-user";
+  const userId = guestAccess?.guest.id ?? auth.user?.id ?? "local-user";
   const handleSelectionChange = useCallback((nodeIds: string[], primaryNodeLabel?: string) => {
     setSelectedNodeIds(nodeIds);
     setSelectedNodeLabel(primaryNodeLabel);
@@ -52,28 +72,42 @@ export function MapEditorPage({ mapId, sessionId }: { mapId: string; sessionId?:
 
   const getCanvasState = useCallback(() => canvasRef.current?.getStorage(), []);
 
-  if (map.error) {
+  if (!isGuest && map.error) {
     return <ErrorState error={map.error} />;
   }
 
-  const title = map.data?.title ?? "Mapa mental";
-  const roomId = map.data?.liveblocksRoomId;
+  const title = mapData?.title ?? "Mapa mental";
+  const roomId = mapData?.liveblocksRoomId;
 
   if (!roomId) {
     return <div className="grid min-h-dvh place-items-center text-sm text-slate-500">Cargando room colaborativa...</div>;
   }
 
   return (
-    <LiveblocksRoom mapId={mapId} roomId={roomId}>
+    <LiveblocksRoom
+      mapId={mapId}
+      roomId={roomId}
+      guestAccess={
+        guestAccess
+          ? {
+              accessToken: guestAccess.accessToken,
+              initialToken: guestAccess.collaboration.token,
+            }
+          : undefined
+      }
+    >
       <div className="fixed inset-0 z-30 flex flex-col bg-[var(--app-bg)]">
         <header className="flex min-h-14 shrink-0 items-center justify-between gap-3 border-b border-slate-200 bg-white px-3 py-2 sm:px-4">
         <div className="flex min-w-0 items-center gap-3">
-          <Link className="btn btn-ghost size-10 p-0" href="/dashboard" aria-label="Volver al dashboard">
+          <Link className="btn btn-ghost size-10 p-0" href={isGuest ? "/" : "/dashboard"} aria-label={isGuest ? "Salir del mapa" : "Volver al dashboard"}>
             <ArrowLeft className="size-4" aria-hidden />
           </Link>
           <div className="min-w-0">
             <h1 className="truncate text-base font-semibold">{title}</h1>
-            <p className="text-xs text-slate-500">{map.data?.description ?? "Canvas colaborativo"}</p>
+            <p className="text-xs text-slate-500">
+              {mapData?.description ?? "Canvas colaborativo"}
+              {guestAccess ? ` · Invitado: ${guestAccess.guest.displayName}` : ""}
+            </p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -81,12 +115,12 @@ export function MapEditorPage({ mapId, sessionId }: { mapId: string; sessionId?:
             <button
               className="btn btn-secondary size-10 p-0"
               type="button"
-              onClick={() => updateMap.mutate({ editingLocked: !map.data?.editingLocked })}
+              onClick={() => updateMap.mutate({ editingLocked: !mapData?.editingLocked })}
               disabled={updateMap.isPending}
-              aria-label={map.data?.editingLocked ? "Desbloquear edicion" : "Bloquear edicion de estudiantes"}
-              title={map.data?.editingLocked ? "Desbloquear edicion" : "Bloquear edicion"}
+              aria-label={mapData?.editingLocked ? "Desbloquear edicion" : "Bloquear edicion de estudiantes"}
+              title={mapData?.editingLocked ? "Desbloquear edicion" : "Bloquear edicion"}
             >
-              {map.data?.editingLocked ? <Unlock className="size-4" aria-hidden /> : <Lock className="size-4" aria-hidden />}
+              {mapData?.editingLocked ? <Unlock className="size-4" aria-hidden /> : <Lock className="size-4" aria-hidden />}
             </button>
           ) : null}
           {isOwner ? (
@@ -94,13 +128,21 @@ export function MapEditorPage({ mapId, sessionId }: { mapId: string; sessionId?:
               <UserCog className="size-4" aria-hidden />
             </button>
           ) : null}
-          <button className="btn btn-secondary size-10 p-0" type="button" onClick={() => setSnapshotsOpen(true)} aria-label="Historial de versiones" title="Historial">
-            <History className="size-4" aria-hidden />
-          </button>
-          <button className="btn btn-primary" type="button" onClick={() => setSessionsOpen(true)} disabled={!isOwner}>
-            <Share2 className="size-4" aria-hidden />
-            <span className="hidden xl:inline">Compartir</span>
-          </button>
+          {!isGuest ? (
+            <>
+              <button className="btn btn-secondary size-10 p-0" type="button" onClick={() => setSnapshotsOpen(true)} aria-label="Historial de versiones" title="Historial">
+                <History className="size-4" aria-hidden />
+              </button>
+              <button className="btn btn-primary" type="button" onClick={() => setSessionsOpen(true)} disabled={!isOwner}>
+                <Share2 className="size-4" aria-hidden />
+                <span className="hidden xl:inline">Compartir</span>
+              </button>
+            </>
+          ) : (
+            <span className="rounded-md bg-teal-50 px-3 py-2 text-xs font-semibold text-teal-900">
+              {canEdit ? "Invitado editor" : "Invitado lector"}
+            </span>
+          )}
         </div>
         </header>
 
@@ -128,29 +170,31 @@ export function MapEditorPage({ mapId, sessionId }: { mapId: string; sessionId?:
               registerCanvas={registerCanvas}
             />
           </section>
-          <AiAssistantPanel
-            mapId={mapId}
-            selectedNodeId={selectedNodeId}
-            selectedNodeLabel={selectedNodeLabel}
-            rootTopic={rootTopic ?? title}
-            canEdit={canEdit}
-            onAcceptSuggestion={(suggestion: AiSuggestion) => canvasRef.current?.addSuggestion(suggestion)}
-            getCanvasState={getCanvasState}
-          />
+          {!isGuest ? (
+            <AiAssistantPanel
+              mapId={mapId}
+              selectedNodeId={selectedNodeId}
+              selectedNodeLabel={selectedNodeLabel}
+              rootTopic={rootTopic ?? title}
+              canEdit={canEdit}
+              onAcceptSuggestion={(suggestion: AiSuggestion) => canvasRef.current?.addSuggestion(suggestion)}
+              getCanvasState={getCanvasState}
+            />
+          ) : null}
         </div>
 
         <footer className="flex min-h-10 shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-white px-3 text-xs text-slate-500 sm:px-4">
-          <RoomAwareness sessionId={sessionId} />
+          <RoomAwareness sessionId={isGuest ? undefined : sessionId} />
           <span className="hidden truncate md:inline">
-            {map.data?.editingLocked && !isOwner ? "Edicion bloqueada por el docente" : canEdit ? "Edicion habilitada" : "Solo lectura"}
+            {mapData?.editingLocked && !isOwner ? "Edicion bloqueada por el docente" : canEdit ? "Edicion habilitada" : "Solo lectura"}
           </span>
           <span className="truncate text-right">{selectedNodeLabel ? `Seleccionado: ${selectedNodeLabel}` : "Sin seleccion"}</span>
         </footer>
 
-        <MapTutorial />
-        {sessionsOpen ? <SessionManagementPanel mapId={mapId} getCanvasState={getCanvasState} onClose={() => setSessionsOpen(false)} /> : null}
-        {snapshotsOpen ? <SnapshotHistoryPanel mapId={mapId} canRestore={isOwner} onClose={() => setSnapshotsOpen(false)} /> : null}
-        {accessOpen ? <MapAccessPanel mapId={mapId} onClose={() => setAccessOpen(false)} /> : null}
+        {!isGuest ? <MapTutorial /> : null}
+        {!isGuest && sessionsOpen ? <SessionManagementPanel mapId={mapId} getCanvasState={getCanvasState} onClose={() => setSessionsOpen(false)} /> : null}
+        {!isGuest && snapshotsOpen ? <SnapshotHistoryPanel mapId={mapId} canRestore={isOwner} onClose={() => setSnapshotsOpen(false)} /> : null}
+        {!isGuest && accessOpen ? <MapAccessPanel mapId={mapId} onClose={() => setAccessOpen(false)} /> : null}
       </div>
     </LiveblocksRoom>
   );

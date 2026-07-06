@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "@xyflow/react/dist/style.css";
+@import "@liveblocks/react-flow/styles.css";
 
 :root {
   --app-bg: #f7f8fb;
@@ -172,6 +173,10 @@ select:focus-visible {
 
 .react-flow {
   background: var(--app-bg);
+}
+
+.lb-react-flow-cursors {
+  z-index: 2001;
 }
 
 .react-flow__controls,

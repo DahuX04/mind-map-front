@@ -39,9 +39,10 @@ export function SessionManagementPanel({
   const metrics = useSessionMetrics(selectedSessionId);
 
   const shareUrl = useMemo(() => {
+    if (invite.data?.shareUrl) return invite.data.shareUrl;
     if (!invite.data?.token || typeof window === "undefined") return "";
     return `${window.location.origin}/join/${invite.data.token}`;
-  }, [invite.data?.token]);
+  }, [invite.data?.shareUrl, invite.data?.token]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();

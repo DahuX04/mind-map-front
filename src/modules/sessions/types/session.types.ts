@@ -29,6 +29,7 @@ export type MapInvite = {
   useCount: number;
   createdBy: string;
   createdAt: string;
+  shareUrl?: string;
 };
 
 export type CreateSessionInput = {
@@ -99,4 +100,33 @@ export type AcceptedInvite = {
   permission: MapPermission;
   accepted: true;
   redirectTo: string;
+};
+
+export type GuestCollaborationToken = {
+  token?: string;
+  roomId: string;
+  permission: Exclude<MapPermission, "owner">;
+  simulated?: boolean;
+};
+
+export type GuestAccess = {
+  accessToken: string;
+  accessTokenType: "Guest";
+  expiresAt: string;
+  guest: {
+    id: string;
+    displayName: string;
+  };
+  map: {
+    id: string;
+    title: string;
+    description?: string | null;
+  };
+  session: {
+    id: string;
+    title?: string | null;
+    status: "scheduled" | "active" | "ended" | "cancelled";
+  } | null;
+  permission: Exclude<MapPermission, "owner">;
+  collaboration: GuestCollaborationToken;
 };
