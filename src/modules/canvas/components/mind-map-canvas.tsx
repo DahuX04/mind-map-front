@@ -317,12 +317,12 @@ export function MindMapCanvas({
   }, [deleteSelected, undo]);
 
   if (flow.isLoading) {
-    return <div className="grid h-full min-h-[520px] place-items-center text-sm text-slate-500">Cargando storage colaborativo...</div>;
+    return <div className="grid h-full min-h-0 place-items-center text-sm text-slate-500">Cargando storage colaborativo...</div>;
   }
 
   return (
     <ReactFlowProvider>
-      <div className="h-full min-h-[520px] w-full">
+      <div className="h-full min-h-0 w-full">
         <ReactFlow
           nodes={renderedNodes}
           edges={renderedEdges}

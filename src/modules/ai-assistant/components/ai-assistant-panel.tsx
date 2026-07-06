@@ -107,7 +107,7 @@ export function AiAssistantPanel({
 
   if (!env.enableAi) {
     return (
-      <aside className="w-full border-l border-slate-200 bg-white p-4 lg:w-80">
+      <aside className="min-h-0 w-full flex-1 border-l border-slate-200 bg-white p-4 lg:w-80">
         <p className="text-sm font-semibold">IA desactivada</p>
         <p className="mt-2 text-sm leading-6 text-slate-500">Activa NEXT_PUBLIC_ENABLE_AI para usar sugerencias y preguntas.</p>
       </aside>
@@ -115,7 +115,7 @@ export function AiAssistantPanel({
   }
 
   return (
-    <aside className="flex w-full flex-col border-l border-slate-200 bg-white lg:w-80">
+    <aside className="flex min-h-0 w-full flex-1 flex-col border-l border-slate-200 bg-white lg:w-80">
       <div className="flex border-b border-slate-200 p-2">
         <button
           className={cn("btn flex-1", activeTab === "suggestions" ? "btn-primary" : "btn-ghost")}
